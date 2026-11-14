@@ -235,7 +235,7 @@ Oferta de la semana | *20%* DESCUENTO | En herbicidas seleccionados</textarea>
         <div id="vProgWrap" hidden><div class="prog"><i id="vProg"></i></div><p class="hint" id="vProgTxt"></p></div>
         <div id="vOut" class="stack" hidden>
           <video id="vResult" controls playsinline></video>
-          <div class="btns"><button class="btn" id="vDl" type="button">Descargar video MP4</button><button class="btn ghost" id="vShare" type="button">Compartir video</button></div>
+          <div class="btns"><button class="btn" id="vDl" type="button">Descargar video</button><button class="btn ghost" id="vShare" type="button">Compartir video</button></div>
         </div>
         <p class="hint">Los botones PNG/JPG guardan el cuadro actual del video, útil como portada.</p>
       </div>
@@ -658,13 +658,13 @@ function loop(){const v=state.photo;if(!v||v.tagName!=='VIDEO'){rafId=0;return;}
   if(vRec&&v.duration){const p=Math.min(1,v.currentTime/v.duration);$('vProg').style.width=(p*100)+'%';$('vProgTxt').textContent=`Grabando… ${fmtT(v.currentTime)} de ${fmtT(v.duration)}. Mantén esta pantalla abierta.`;}
   rafId=requestAnimationFrame(loop);}
 function fmtT(t){t=Math.max(0,Math.round(t||0));return Math.floor(t/60)+':'+String(t%60).padStart(2,'0');}
-function pickMime(){if(!window.MediaRecorder)return null;
-  return ['video/mp4;codecs=avc3.42E01E,mp4a.40.2','video/mp4;codecs=avc3','video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4;codecs=avc1','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'].find(m=>{try{return MediaRecorder.isTypeSupported(m)}catch(e){return false}})||null;}
+function pickMime(){return mimeList()[0]||null;}
+function videoFormatInfo(m){return m&&m.startsWith('video/mp4')?'Formato MP4. Se prioriza H.264 y audio AAC para mejorar la compatibilidad con Mac.':m&&m.startsWith('video/webm')?'Formato WebM. Puede no abrirse en QuickTime; para Mac se recomienda MP4 con H.264 y AAC.':'Este navegador no puede exportar video. Prueba con otro navegador actualizado.';}
 $('foto').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;
   stopVideo();if(mediaURL)URL.revokeObjectURL(mediaURL);mediaURL=URL.createObjectURL(f);state.mediaFile=f;$('vOut').hidden=true;
   if(f.type.startsWith('video/')){const v=document.createElement('video');v.muted=true;v.loop=true;v.playsInline=true;v.setAttribute('playsinline','');v.preload='auto';v.src=mediaURL;
     v.addEventListener('loadeddata',()=>{state.photo=v;videoUI(true);
-      const m=pickMime();$('vInfo').textContent=`Duración ${fmtT(v.duration)}. `+(m?(m.includes('mp4')?'Se exporta en MP4, listo para Instagram.':'Este navegador exporta en WebM. Para MP4 usa Safari o Chrome actualizado.'):'Este navegador no puede exportar video. Prueba con Chrome o Safari actualizado.');
+      const m=pickMime();$('vInfo').textContent=`Duración ${fmtT(v.duration)}. `+videoFormatInfo(m);
       $('vExport').disabled=!m;$('vPlay').textContent='Pausar vista previa';v.play().catch(()=>{$('vPlay').textContent='Reproducir vista previa'});
       if(!rafId)loop();toast('Video cargado');},{once:true});
     v.addEventListener('error',()=>toast('No se pudo abrir ese video. Prueba con MP4 o MOV.'),{once:true});
@@ -680,7 +680,8 @@ async function audioBuffer(){const f=state.mediaFile;if(!f)throw new Error('sin 
 function vFail(msg){toast(msg);$('vProgWrap').hidden=false;$('vProg').style.width='0%';$('vProgTxt').textContent='⚠️ '+msg;
   $('vExport').textContent='Exportar video';$('vPlay').disabled=false;const v=state.photo;if(v&&v.tagName==='VIDEO'){v.loop=true;v.muted=true;v.play().catch(()=>{});}}
 function mimeList(){if(!window.MediaRecorder)return [];
-  return ['video/mp4;codecs=avc3.42E01E,mp4a.40.2','video/mp4;codecs=avc3','video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4;codecs=avc1','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'].filter(m=>{try{return MediaRecorder.isTypeSupported(m)}catch(e){return false}});}
+  // Nivel 4 admite los formatos de hasta 1080×1920 a 30 FPS. Se prioriza avc1 y AAC.
+  return ['video/mp4;codecs=avc1.424028,mp4a.40.2','video/mp4;codecs=avc1,mp4a.40.2','video/mp4;codecs=avc1','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'].filter(m=>{try{return MediaRecorder.isTypeSupported(m)}catch(e){return false}});}
 $('vExport').onclick=()=>{const v=state.photo;if(!v||v.tagName!=='VIDEO')return;
   if(vRec){if(vRec.state!=='inactive')vRec.stop();return;}
   if(!window.MediaRecorder||!cv.captureStream){vFail('Este navegador no puede grabar video. Usa Safari o Chrome actualizado.');return;}
@@ -706,7 +707,7 @@ async function runExport(v,audio,unlock){
   const stopAudio=()=>{if(aNode){try{aNode.stop();}catch(e){}try{aNode.disconnect();}catch(e){}aNode=null;}};
   let rec=null,mime=null;
   for(const m of mimeList()){try{rec=new MediaRecorder(stream,{mimeType:m,videoBitsPerSecond:6000000});mime=m;break;}catch(e){}}
-  if(!rec){try{rec=new MediaRecorder(stream);mime=rec.mimeType||'video/mp4';}catch(e){vFail('No se pudo iniciar la grabación en este navegador.');return;}}
+  if(!rec){try{rec=new MediaRecorder(stream);mime=rec.mimeType;}catch(e){vFail('No se pudo iniciar la grabación en este navegador.');return;}}
   const chunks=[];vRec=rec;
   rec.ondataavailable=ev=>{if(ev.data&&ev.data.size)chunks.push(ev.data)};
   rec.onerror=ev=>{vFail('La grabación falló: '+((ev.error&&ev.error.message)||'error desconocido'));};
@@ -714,8 +715,13 @@ async function runExport(v,audio,unlock){
   rec.onstop=()=>{stopAudio();v.removeEventListener('ended',onEnd);vRec=null;v.loop=true;v.muted=true;v.play().catch(()=>{});
     stream.getVideoTracks().forEach(t=>t.stop());
     $('vExport').textContent='Exportar video';$('vPlay').disabled=false;$('vProgWrap').hidden=true;
-    const type=(mime||'video/mp4').split(';')[0],ext=type.includes('mp4')?'mp4':'webm';vBlob=new Blob(chunks,{type});vName=fname(curData(),ext);
+    const actualMime=chunks.find(c=>c.type)?.type||rec.mimeType||mime||'';
+    const type=actualMime.split(';')[0].trim().toLowerCase(),ext=type==='video/mp4'?'mp4':type==='video/webm'?'webm':null;
+    if(!ext){vFail('No se pudo identificar el formato generado. Prueba con otro navegador actualizado.');return;}
+    vBlob=new Blob(chunks,{type});vName=fname(curData(),ext);
     if(!vBlob.size){vFail('La grabación salió vacía. Intenta de nuevo con la pantalla encendida.');return;}
+    $('vDl').textContent=`Descargar video ${ext.toUpperCase()}`;
+    $('vInfo').textContent=`Duración ${fmtT(v.duration)}. `+videoFormatInfo(actualMime);
     $('vResult').src=URL.createObjectURL(vBlob);$('vOut').hidden=false;$('vOut').scrollIntoView({behavior:'smooth',block:'nearest'});toast(noAudioMsg?'Video listo, sin sonido':'Video listo');};
   v.addEventListener('ended',onEnd);
   try{await withTimeout(v.play(),6000);}catch(e){vRec=null;vFail('El navegador no dejó reproducir el video. Toca “Reproducir vista previa” y vuelve a exportar.');return;}
