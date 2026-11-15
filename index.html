@@ -609,17 +609,24 @@ function drawRegular(c,d){
   const fade=c.createLinearGradient(0,H*.39,0,H*.72);
   fade.addColorStop(0,'rgba(0,0,0,0)');fade.addColorStop(.55,'rgba(0,0,0,.88)');fade.addColorStop(1,'#050505');
   c.fillStyle=fade;c.fillRect(0,H*.39,W,H*.61);
-  const green='#47d16a',LG=logoRegular;
-  const logoY=H*.575,logoW=Math.min(W*.25,310),logoH=LG.naturalWidth?logoW*LG.naturalHeight/LG.naturalWidth:0;
-  if(d.logoOn&&LG.complete&&LG.naturalWidth)c.drawImage(LG,(W-logoW)/2,logoY,logoW,logoH);
-  const ruleY=H*.642;c.fillStyle=green;c.fillRect(W*.22,ruleY,W*.56,Math.max(7,W*.008));
   const title=plain($('regularTitle').value).trim();
-  if(title){let fs=+$('regularSize').value*(W/1024),lines=[];const maxW=W*.84,maxH=H*.29;
+  let fs=+$('regularSize').value*(W/1024),lines=[],startY=0,titleOffset=0;
+  const maxW=W*.84,maxH=H*.29;
+  if(title){
     c.textAlign='center';c.textBaseline='alphabetic';
     do{c.font=`${fs}px Anton, Impact, "Arial Narrow", sans-serif`;lines=wrap(c,title,maxW);if(lines.length*fs*1.08<=maxH||fs<=30)break;fs-=2;}while(fs>30);
-    const lineH=fs*1.08,startY=Math.min(H*.94,H*.675+(maxH-lines.length*lineH)/2+fs);
+    const lineH=fs*1.08;
+    startY=Math.min(H*.94,H*.675+(maxH-lines.length*lineH)/2+fs);
+    // El logo y la linea siguen el espacio libre sobre el titular.
+    titleOffset=Math.max(0,startY-fs-H*.675);
+  }
+  const green='#47d16a',LG=logoRegular;
+  const logoY=H*.575+titleOffset,logoW=Math.min(W*.25,310),logoH=LG.naturalWidth?logoW*LG.naturalHeight/LG.naturalWidth:0;
+  if(d.logoOn&&LG.complete&&LG.naturalWidth)c.drawImage(LG,(W-logoW)/2,logoY,logoW,logoH);
+  const ruleY=H*.642+titleOffset;c.fillStyle=green;c.fillRect(W*.22,ruleY,W*.56,Math.max(7,W*.008));
+  if(title){
     c.fillStyle='#fff';c.shadowColor='rgba(0,0,0,.28)';c.shadowBlur=8;
-    lines.forEach((line,i)=>c.fillText(line,W/2,startY+i*lineH,maxW));c.shadowBlur=0;
+    lines.forEach((line,i)=>c.fillText(line,W/2,startY+i*fs*1.08,maxW));c.shadowBlur=0;
   }
   drawCircle(c,d,W,H);
 }
